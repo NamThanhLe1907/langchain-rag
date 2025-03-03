@@ -1,18 +1,10 @@
-import json
-import os
 import unicodedata
 import uuid
-import shutil
+import sys
 
 from dotenv import load_dotenv
 load_dotenv()  # Tải biến môi trường từ file .env
-
 from langchain_core.messages import AIMessage, HumanMessage
-from langchain.docstore.document import Document
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_community.vectorstores import FAISS
-from langchain_openai import ChatOpenAI
-from langchain.memory import ConversationBufferMemory
 # Import graph builder để có part_1_graph
 from graph_builder import part_1_graph
 from data.state import State
@@ -91,72 +83,90 @@ class AIAgentFAQ:
         normalized = unicodedata.normalize('NFKC', text)
         return normalized.encode('utf-8', 'replace').decode('utf-8')
 
+
     def start_graph_conversation(self):
-    # Cập nhật DB (sử dụng hàm update_dates từ data/database.py)
-        update_dates(db)  # Cập nhật DB theo file backup
-        import uuid
+        """Chạy hội thoại với graph agent."""
+        
+        # Cập nhật DB theo file backup
+        update_dates(db)
+        
+        # Tạo ID thread duy nhất
         thread_id = str(uuid.uuid4())
-        
-        # Yêu cầu nhập Passenger ID ban đầu, làm sạch input
-        passenger_id = ""
+
+        # Yêu cầu nhập Passenger ID ban đầu
+        passenger_id = ""   #Available ID: "3442 587242"
         while not passenger_id:
-            passenger_id = self.clean_text(input("Nhập Passenger ID của bạn: ").strip())  #Available ID: "3442 587242"
-            if not passenger_id:
-                print("Passenger ID không được để trống. Vui lòng nhập lại!")
-        
+            try:
+                raw_input = input("Nhập Passenger ID của bạn: ").strip()
+                passenger_id = self.clean_text(raw_input)
+                if not passenger_id:
+                    print("❌ Passenger ID không được để trống. Vui lòng nhập lại!")
+            except EOFError:
+                print("\n⛔ Đã nhận tín hiệu EOF. Thoát chương trình.")
+                sys.exit(0)
+
         config = {"configurable": {"thread_id": thread_id, "passenger_id": passenger_id}}
         
-        # Khởi tạo state ban đầu cho graph: state chứa danh sách các message dưới dạng đối tượng (HumanMessage, AIMessage)
-        initial_state: State = {"messages": []}
-        print("Bắt đầu hội thoại theo graph (chế độ stream). Gõ 'exit' để thoát.")
-        
+        # Khởi tạo state ban đầu
+        initial_state = {"messages": []}
+        print("🎤 Bắt đầu hội thoại theo graph (chế độ stream). Gõ 'exit' để thoát.")
+
         while True:
-            query = self.clean_text(input("Bạn: ").strip())
+            try:
+                raw_query = input("Bạn: ").strip()
+            except EOFError:
+                print("\n⛔ Đã nhận tín hiệu EOF. Thoát chương trình.")
+                sys.exit(0)
+
+            query = self.clean_text(raw_query)  # Làm sạch input
+
+            # Kiểm tra nếu người dùng muốn thoát
             if query.lower() in ["exit", "quit"]:
-                print("Tạm biệt!")
-                break
-            
-            # Nếu người dùng muốn cập nhật passenger id, ví dụ: "update passenger id: 12345"
+                print("👋 Tạm biệt! Hẹn gặp lại.")
+                sys.exit(0)
+
+            # Nếu người dùng muốn cập nhật Passenger ID
             if query.lower().startswith("update passenger id:"):
                 new_id = self.clean_text(query.split(":", 1)[1].strip())
                 if new_id:
                     config["configurable"]["passenger_id"] = new_id
-                    print(f"Passenger ID đã được cập nhật thành: {new_id}")
+                    print(f"✅ Passenger ID đã cập nhật thành: {new_id}")
                 else:
-                    print("Không nhận được giá trị passenger id mới. Vui lòng thử lại.")
-                continue  # Bỏ qua phần xử lý query hiện tại
-            
+                    print("❌ Không nhận được Passenger ID mới. Vui lòng thử lại.")
+                continue  # Bỏ qua xử lý query hiện tại
+
             # Thêm message của người dùng vào state
             initial_state["messages"].append(HumanMessage(content=query))
-            
-            # Sử dụng stream để in ra các event (cho debug)
+
+            # Debug: Kiểm tra messages trong state
+            print(f"📩 DEBUG - State hiện tại: {initial_state['messages']}")
+
+            # Stream events để debug
             _printed = set()
             try:
                 events = part_1_graph.stream(initial_state, config=config, stream_mode="values")
                 for event in events:
                     _print_event(event, _printed)
             except Exception as e:
-                print("Lỗi khi stream event:", e)
-            
-            # Gọi graph với state và config để lấy state mới
+                print(f"⚠️ Lỗi khi stream event: {e}")
+
+            # Gọi graph với state để lấy state mới
             try:
                 new_state = part_1_graph.invoke(initial_state, config=config)
             except Exception as e:
-                print("Lỗi khi invoke graph:", e)
+                print(f"⚠️ Lỗi khi invoke graph: {e}")
                 break
-            
-            # In ra phản hồi của assistant từ state mới
-            if new_state["messages"]:
+
+            # In phản hồi từ assistant
+            if new_state.get("messages"):
                 last_msg = new_state["messages"][-1]
-                try:
-                    print("Agent (Graph):", last_msg.content)
-                except AttributeError:
-                    print("Agent (Graph):", last_msg)
+                print(f"🤖 Agent (Graph): {last_msg.content if isinstance(last_msg, AIMessage) else last_msg}")
             else:
-                print("Agent (Graph): Không có phản hồi.")
-            
-            # Cập nhật state cho lượt tiếp theo
+                print("🤖 Agent (Graph): Không có phản hồi.")
+
+            # Cập nhật state mới
             initial_state = new_state
+
 
 
         

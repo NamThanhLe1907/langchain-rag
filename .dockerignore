@@ -1,0 +1,11 @@
+# Bỏ qua thư mục môi trường ảo và cache của Python
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+
+# Bỏ qua file log & dữ liệu không cần thiết
+*.log
+*.sqlite3
