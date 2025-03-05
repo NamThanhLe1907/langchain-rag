@@ -4,3 +4,6 @@
 ./env
 *.sqlite
 __pycache__
+/testing_memory
+/data/old_data
+graph.py
