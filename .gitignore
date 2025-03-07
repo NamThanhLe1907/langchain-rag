@@ -7,3 +7,4 @@ __pycache__
 /testing_memory
 /data/old_data
 graph.py
+*.png
