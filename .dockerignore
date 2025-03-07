@@ -9,3 +9,15 @@ __pycache__/
 # Bỏ qua file log & dữ liệu không cần thiết
 *.log
 *.sqlite3
+
+.env
+/env
+\env
+./env
+*.sqlite
+__pycache__
+/data/old_data
+/testing_memory
+graph.py
+*.jpg
+*.png
