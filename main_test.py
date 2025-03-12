@@ -85,8 +85,7 @@ class AIAgentGraph:
                 # print(f"\n🧑 **USER :** {user_input}")
                 _printed = set()
                 
-       #         snapshot2 = part_2_graph.get_state(config = self.config)
-       #         print("DEBUG snapshot2\n",snapshot2.config)
+
                 # ✅ Khởi tạo conversation
                 # inputs = {"messages": [HumanMessage(content=user_input)]}
                 for question in tutorial_questions:
@@ -106,8 +105,7 @@ class AIAgentGraph:
                         if not snapshot.next:
                             break
                           
-                #        print("\n=== DEBUG: Sau khi merge config ===")
-                #        print("merged_config:", merged_config)
+
                       
                         print("\n🔍 **DEBUG: AI ĐANG CHỜ TOOL PHẢN HỒI...**")
                         user_choice = input("\n⏳ **Bạn có đồng ý thực hiện tool này? (y/n):** ").strip().lower()
