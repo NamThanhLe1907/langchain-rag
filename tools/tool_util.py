@@ -1,26 +1,38 @@
-from langchain_core.messages import ToolMessage
+from langchain_core.messages import ToolMessage, AIMessage
 from langchain_core.runnables import RunnableLambda
 
 from langgraph.prebuilt import ToolNode
 
 
-def handle_tool_error(state) -> dict:
+def handle_tool_error(state: dict) -> dict:
     error = state.get("error")
-    tool_calls = state["messages"][-1].tool_calls
+    tool_call_id = state.get("tool_call_id")
     return {
         "messages": [
             ToolMessage(
-                content=f"Error: {repr(error)}\n please fix your mistakes.",
-                tool_call_id=tc["id"],
+                tool_call_id=tool_call_id,
+                content=f"Tool error: {str(error)}"
             )
-            for tc in tool_calls
         ]
     }
 
+def create_tool_node_with_fallback(tools: list):
+    def _get_tool_call_id(state: dict):
+        # Lấy tool_call_id từ message AI cuối cùng
+        messages = state.get("messages", [])
+        for msg in reversed(messages):
+            if isinstance(msg, AIMessage) and msg.tool_calls:
+                return msg.tool_calls[0]["id"]
+        return None
 
-def create_tool_node_with_fallback(tools: list) -> dict:
     return ToolNode(tools).with_fallbacks(
-        [RunnableLambda(handle_tool_error)], exception_key="error"
+        [
+            RunnableLambda(lambda x: {
+                "error": x["error"],
+                "tool_call_id": _get_tool_call_id(x)
+            }) | RunnableLambda(handle_tool_error)
+        ],
+        exception_key="error"
     )
 
 
