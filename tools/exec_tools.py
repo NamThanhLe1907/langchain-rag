@@ -68,7 +68,8 @@ def fetch_user_flight_information(config: RunnableConfig) -> list[dict]:
     configuration = config.get("configurable", {})
     passenger_id = configuration.get("passenger_id", None)
     if not passenger_id:
-        raise ValueError("No passenger ID configured.")
+        config = RunnableConfig.get()
+        passenger_id = config.get("configurable", {}).get("passenger_id")
 
     conn = sqlite3.connect(db)
     cursor = conn.cursor()
