@@ -1,7 +1,7 @@
 import unicodedata
 import uuid
 from dotenv import load_dotenv
-from graph_builder import part_2_tools, memory, builder
+from graph_builder import part_3_safe_tools , part_3_sensitive_tools, memory, builder
 from data.database import update_dates, db
 from tools.tool_util import _print_event
 from langsmith import Client
@@ -10,7 +10,6 @@ from langchain_core.runnables.config import merge_configs
 
 # ✅ Load biến môi trường
 load_dotenv()
-
 class AIAgentGraph:
     def __init__(self):
         """✅ Khởi tạo Agent với thread_id và passenger_id từ input người dùng."""
@@ -53,10 +52,15 @@ class AIAgentGraph:
                 "passenger_id": self.passenger_id,
             }
         }
-        
+        all_tools = part_3_safe_tools + part_3_sensitive_tools
         # ✅ Biên dịch lại `graph` với `config` mới
-        part_2_graph = builder.compile(checkpointer=memory, interrupt_before=["tools"])
-
+        part_3_graph = builder.compile(
+                                        checkpointer=memory,
+                                        # NEW: The graph will always halt before executing the "tools" node.
+                                        # The user can approve or reject (or even alter the request) before
+                                        # the assistant continues
+                                        interrupt_before=["sensitive_tools"],
+                                    )
 
         tutorial_questions = [
                 "Hi there, what time is my flight?",
@@ -85,20 +89,19 @@ class AIAgentGraph:
                 # print(f"\n🧑 **USER :** {user_input}")
                 _printed = set()
                 
-       #         snapshot2 = part_2_graph.get_state(config = self.config)
-       #         print("DEBUG snapshot2\n",snapshot2.config)
+
                 # ✅ Khởi tạo conversation
                 # inputs = {"messages": [HumanMessage(content=user_input)]}
                 for question in tutorial_questions:
                                                     
-                    events = part_2_graph.stream({"messages": ("user", question)}, self.config, stream_mode="values")
+                    events = part_3_graph.stream({"messages": ("user", question)}, self.config, stream_mode="values")
     
         
                     for event in events:
                         _print_event(event, _printed)
                     # ✅ Xử lý tool calls
                     while True:
-                        snapshot = part_2_graph.get_state(config = self.config)
+                        snapshot = part_3_graph.get_state(config = self.config)
 
                #         print("\n=== DEBUG: Trước khi merge config ===")
                #         print("self.config:", self.config)
@@ -106,8 +109,7 @@ class AIAgentGraph:
                         if not snapshot.next:
                             break
                           
-                #        print("\n=== DEBUG: Sau khi merge config ===")
-                #        print("merged_config:", merged_config)
+
                       
                         print("\n🔍 **DEBUG: AI ĐANG CHỜ TOOL PHẢN HỒI...**")
                         user_choice = input("\n⏳ **Bạn có đồng ý thực hiện tool này? (y/n):** ").strip().lower()
@@ -124,16 +126,18 @@ class AIAgentGraph:
         
                             print(f"\n🔧 **AI YÊU CẦU TOOL: {tool_name} ({tool_call_id})**")
                             print(f"📝 **Arguments:** {tool_args}")
-        
+                            try:
                             # ✅ Hỏi user có đồng ý chạy tool không
-                            user_choice = input(f"\n⏳ **Bạn có đồng ý thực hiện tool {tool_name}? (y/n):** ").strip().lower()
+                                user_choice = input(f"\n⏳ **Bạn có đồng ý thực hiện tool {tool_name}? (y/n):** ").strip().lower()
+                            except:
+                                user_choice = "y"
                             if user_choice != "y":
                                 print(f"\n❌ **User từ chối tool {tool_name}.**")
                                 tool_response = f"User denied execution of {tool_name}."
                             else:
                                 print(f"\n✅ **Đang thực thi tool {tool_name}...**")
                                 try:
-                                    tool = next(t for t in part_2_tools if t.name == tool_name)
+                                    tool = next((t for t in all_tools if t.name == tool_name), None)
                                     
                                     tool_args["passenger_id"] = self.passenger_id
                                     tool_result = tool.invoke(
@@ -151,7 +155,7 @@ class AIAgentGraph:
                             )
         
                             # ✅ Stream tool message vào graph để cập nhật state
-                            new_events = part_2_graph.stream(
+                            new_events = part_3_graph.stream(
                                 {"messages": [tool_message]},
                                 config = self.config,
                                 stream_mode="values"
@@ -162,7 +166,7 @@ class AIAgentGraph:
                             for event in new_events:
                                 _print_event(event, _printed)
         
-                        snapshot = part_2_graph.get_state(config = self.config)
+                        snapshot = part_3_graph.get_state(config = self.config)
             except Exception as e:
                     print(f"\n⚠️ **Lỗi khi chạy graph:** {e}")
 
