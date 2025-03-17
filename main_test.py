@@ -1,19 +1,30 @@
 import unicodedata
 import uuid
 from dotenv import load_dotenv
-from graph_builder import part_3_safe_tools , part_3_sensitive_tools, memory, builder
+from Assistant.graph_builder import part_4_graph
+from Assistant.prompt import (
+                            update_flight_runnable,
+                            book_car_rental_runnable,
+                            book_hotel_runnable,
+                            book_excursion_runnable,
+                            assistant_runnable,
+                            update_flight_tools,
+                            book_hotel_tools,
+                            book_car_rental_tools,
+                            book_excursion_tools,
+                            fetch_user_flight_information
+)
 from data.database import update_dates, db
 from tools.tool_util import _print_event
 from langsmith import Client
 from langchain_core.messages import ToolMessage, HumanMessage, AIMessage
-from langchain_core.runnables.config import merge_configs
 
 # ✅ Load biến môi trường
 load_dotenv()
 class AIAgentGraph:
     def __init__(self):
         """✅ Khởi tạo Agent với thread_id và passenger_id từ input người dùng."""
-
+        update_dates(db)
     def get_passenger_id(self):
         """✅ Hỏi người dùng nhập Passenger ID."""
         raw_input = input("\n🚀 **Nhập Passenger ID của bạn (hoặc '1' để dùng mặc định):** ").strip()
@@ -41,7 +52,8 @@ class AIAgentGraph:
     def run(self):
         """✅ Chạy hội thoại với LangGraph."""
         print("\n🎤 **BẮT ĐẦU HỘI THOẠI VỚI TRỢ LÝ. GÕ 'exit' ĐỂ THOÁT.**\n")
-        # ✅ Bây giờ mới yêu cầu nhập Passenger ID và tạo Thread ID
+        
+        # ✅ Nhập Passenger ID và tạo Thread ID
         self.passenger_id = self.get_passenger_id()
         self.thread_id = str(uuid.uuid4())
 
@@ -52,123 +64,121 @@ class AIAgentGraph:
                 "passenger_id": self.passenger_id,
             }
         }
-        all_tools = part_3_safe_tools + part_3_sensitive_tools
-        # ✅ Biên dịch lại `graph` với `config` mới
-        part_3_graph = builder.compile(
-                                        checkpointer=memory,
-                                        # NEW: The graph will always halt before executing the "tools" node.
-                                        # The user can approve or reject (or even alter the request) before
-                                        # the assistant continues
-                                        interrupt_before=["sensitive_tools"],
-                                    )
 
+        # ✅ Danh sách câu hỏi giả lập
         tutorial_questions = [
-                "Hi there, what time is my flight?",
-                "Am i allowed to update my flight to something sooner? I want to leave later today.",
-                "Update my flight to sometime next week then",
-                "The next available option is great",
-                "what about lodging and transportation?",
-                "Yeah i think i'd like an affordable hotel for my week-long stay (7 days). And I'll want to rent a car.",
-                "OK could you place a reservation for your recommended hotel? It sounds nice.",
-                "yes go ahead and book anything that's moderate expense and has availability.",
-                "Now for a car, what are my options?",
-                "Awesome let's just get the cheapest option. Go ahead and book for 7 days",
-                "Cool so now what recommendations do you have on excursions?",
-                "Are they available while I'm there?",
-                "interesting - i like the museums, what options are there? ",
-                "OK great pick one and book it for my second day there.",
-            ]
-        while True:
+            "Hi there, what time is my flight?",
+            "Am I allowed to update my flight to something sooner? I want to leave later today.",
+            "Update my flight to sometime next week then",
+            "The next available option is great",
+            "What about lodging and transportation?",
+            "Yeah, I think I'd like an affordable hotel for my week-long stay (7 days). And I'll want to rent a car.",
+            "OK, could you place a reservation for your recommended hotel? It sounds nice.",
+            "Yes, go ahead and book anything that's moderate expense and has availability.",
+            "Now for a car, what are my options?",
+            "Awesome, let's just get the cheapest option. Go ahead and book for 7 days.",
+            "Cool, so now what recommendations do you have on excursions?",
+            "Are they available while I'm there?",
+            "Interesting - I like the museums, what options are there?",
+            "OK, great pick one and book it for my second day there.",
+        ]
+
+        _printed = set()
+
+        for question in tutorial_questions:
             try:
-                
-                # user_input = self.get_user_input()
-                # if user_input.lower() == "exit":
-                #     print("\n👋 **TẠM BIỆT!**\n")
-                #     break
-                
-                # print(f"\n🧑 **USER :** {user_input}")
-                _printed = set()
-                
+                # ✅ Bắt đầu hội thoại
+                print(f"\n🧑 **USER :** {question}")
 
-                # ✅ Khởi tạo conversation
-                # inputs = {"messages": [HumanMessage(content=user_input)]}
-                for question in tutorial_questions:
-                                                    
-                    events = part_3_graph.stream({"messages": ("user", question)}, self.config, stream_mode="values")
-    
-        
-                    for event in events:
-                        _print_event(event, _printed)
-                    # ✅ Xử lý tool calls
-                    while True:
-                        snapshot = part_3_graph.get_state(config = self.config)
+                events = part_4_graph.stream({"messages": ("user", question)}, self.config, stream_mode="values")
 
-               #         print("\n=== DEBUG: Trước khi merge config ===")
-               #         print("self.config:", self.config)
-               #         print("snapshot.config:", snapshot.config)
-                        if not snapshot.next:
-                            break
-                          
+                for event in events:
+                    _print_event(event, _printed)
 
-                      
-                        print("\n🔍 **DEBUG: AI ĐANG CHỜ TOOL PHẢN HỒI...**")
-                        user_choice = input("\n⏳ **Bạn có đồng ý thực hiện tool này? (y/n):** ").strip().lower()
-        
-                        # ✅ Lấy tool call info từ message GỐC
-                        original_ai_message = next(
-                            msg for msg in reversed(snapshot.values["messages"]) 
-                            if isinstance(msg, AIMessage) and msg.tool_calls
-                        )
-                        for tool_call in original_ai_message.tool_calls:
-                            tool_call_id = tool_call["id"]
-                            tool_name = tool_call["name"]
-                            tool_args = tool_call["args"]
-        
-                            print(f"\n🔧 **AI YÊU CẦU TOOL: {tool_name} ({tool_call_id})**")
-                            print(f"📝 **Arguments:** {tool_args}")
+                # ✅ Xử lý tool calls
+                while True:
+                    snapshot = part_4_graph.get_state(config=self.config)
+
+                    if not snapshot.next:
+                        break
+
+                    print("\n🔍 **DEBUG: AI ĐANG CHỜ TOOL PHẢN HỒI...**")
+
+                    # ✅ Lấy tool call info từ message GỐC
+                    original_ai_message = next(
+                        msg for msg in reversed(snapshot.values["messages"])
+                        if isinstance(msg, AIMessage) and msg.tool_calls
+                    )
+
+                    for tool_call in original_ai_message.tool_calls:
+                        tool_call_id = tool_call["id"]
+                        tool_name = tool_call["name"]
+                        tool_args = tool_call["args"]
+
+                        print(f"\n🔧 **AI YÊU CẦU TOOL: {tool_name} ({tool_call_id})**")
+                        print(f"📝 **Arguments:** {tool_args}")
+
+                        # ✅ Tự động chấp nhận tool (không cần nhập "y")
+                        print(f"\n✅ **Tự động thực thi tool {tool_name}...**")
+
+                        # ✅ Chọn assistant phù hợp
+                        if tool_name in [t.name for t in update_flight_tools]:
+                            assistant = update_flight_runnable
+                        elif tool_name in [t.name for t in book_hotel_tools]:
+                            assistant = book_hotel_runnable
+                        elif tool_name in [t.name for t in book_car_rental_tools]:
+                            assistant = book_car_rental_runnable
+                        elif tool_name in [t.name for t in book_excursion_tools]:
+                            assistant = book_excursion_runnable
+                        else:
+                            assistant = assistant_runnable  # Mặc định: dùng assistant chính
+
+                        # ✅ Kiểm tra và chuẩn hóa dữ liệu đầu vào
+                        messages = snapshot.values.get("messages", [])
+                        if not isinstance(messages, list):
+                            messages = [messages]
+
+                        user_info = fetch_user_flight_information.invoke(
+                            {"configurable": {"passenger_id": self.passenger_id}}
+                        ) or {}
+
+                        if not isinstance(user_info, dict):
+                            print(f"❌ Lỗi: user_info không phải dict! user_info={user_info}")
+                            user_info = {}
+
+                        if not isinstance(tool_args, dict):
+                            print(f"❌ Tool error: tool_args không hợp lệ! tool_args={tool_args}")
+                            tool_response = "❌ Tool error: Invalid tool arguments."
+                        else:
                             try:
-                            # ✅ Hỏi user có đồng ý chạy tool không
-                                user_choice = input(f"\n⏳ **Bạn có đồng ý thực hiện tool {tool_name}? (y/n):** ").strip().lower()
-                            except:
-                                user_choice = "y"
-                            if user_choice != "y":
-                                print(f"\n❌ **User từ chối tool {tool_name}.**")
-                                tool_response = f"User denied execution of {tool_name}."
-                            else:
-                                print(f"\n✅ **Đang thực thi tool {tool_name}...**")
-                                try:
-                                    tool = next((t for t in all_tools if t.name == tool_name), None)
-                                    
-                                    tool_args["passenger_id"] = self.passenger_id
-                                    tool_result = tool.invoke(
-                                                                  tool_args, 
-                                                                  config={"configurable": {"passenger_id": self.passenger_id}}
-                                                              )
-                                    tool_response = f"✅ {tool_name} result: {tool_result}"
-                                except Exception as e:
-                                    tool_response = f"❌ Tool error: {str(e)}"
-        
-                            # ✅ Tạo tool message
-                            tool_message = ToolMessage(
-                                tool_call_id=tool_call_id,
-                                content=tool_response
-                            )
-        
-                            # ✅ Stream tool message vào graph để cập nhật state
-                            new_events = part_3_graph.stream(
-                                {"messages": [tool_message]},
-                                config = self.config,
-                                stream_mode="values"
-                            )
-                            # print("\n=== DEBUG: SAU khi gọi tool ===")
-                            # print("snapshot.config:", snapshot.config)
-                            # ✅ In phản hồi mới từ AI
-                            for event in new_events:
-                                _print_event(event, _printed)
-        
-                        snapshot = part_3_graph.get_state(config = self.config)
+                                tool_result = assistant.invoke(
+                                    {"messages": messages, "user_info": user_info},
+                                    config={"configurable": {"passenger_id": self.passenger_id}},
+                                )
+                                tool_response = f"✅ {tool_name} result: {tool_result}"
+                            except Exception as e:
+                                tool_response = f"❌ Tool error: {str(e)}"
+
+                        # ✅ Gửi phản hồi tool vào graph
+                        tool_message = ToolMessage(
+                            tool_call_id=tool_call_id,
+                            content=tool_response
+                        )
+
+                        new_events = part_4_graph.stream(
+                            {"messages": [tool_message]},
+                            config=self.config,
+                            stream_mode="values"
+                        )
+
+                        for event in new_events:
+                            _print_event(event, _printed)
+
+                    snapshot = part_4_graph.get_state(config=self.config)
+
             except Exception as e:
-                    print(f"\n⚠️ **Lỗi khi chạy graph:** {e}")
+                print(f"\n⚠️ **Lỗi khi chạy graph:** {e}")
+
 
 if __name__ == "__main__":
     agent = AIAgentGraph()

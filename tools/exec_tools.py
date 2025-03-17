@@ -137,7 +137,8 @@ def update_ticket_to_new_flight(
     configuration = config.get("configurable", {})
     passenger_id = configuration.get("passenger_id", None)
     if not passenger_id:
-        raise ValueError("No passenger ID configured.")
+        config = RunnableConfig.get()
+        passenger_id = config.get("configurable", {}).get("passenger_id")
 
     conn = sqlite3.connect(db)
     cursor = conn.cursor()
@@ -193,7 +194,8 @@ def cancel_ticket(ticket_no: str, *, config: RunnableConfig) -> str:
     configuration = config.get("configurable", {})
     passenger_id = configuration.get("passenger_id", None)
     if not passenger_id:
-        raise ValueError("No passenger ID configured.")
+        config = RunnableConfig.get()
+        passenger_id = config.get("configurable", {}).get("passenger_id")
     conn = sqlite3.connect(db)
     cursor = conn.cursor()
     cursor.execute("SELECT flight_id FROM ticket_flights WHERE ticket_no = ?", (ticket_no,))
