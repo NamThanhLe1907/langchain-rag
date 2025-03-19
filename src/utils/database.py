@@ -13,7 +13,11 @@ def query_db(query: str, db_path: str = "travel2.sqlite"):
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     try:
-        cursor.execute(query)
+        # Thêm kiểm tra query và sử dụng parameterized queries
+        if not query.strip().lower().startswith(("select", "pragma")):
+            raise ValueError("Chỉ hỗ trợ truy vấn SELECT và PRAGMA")
+        
+        cursor.execute(query, ())  # Sử dụng parameterized query
         results = cursor.fetchall()
         conn.close()
         return results if results else "Không tìm thấy dữ liệu phù hợp."

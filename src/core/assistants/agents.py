@@ -18,18 +18,21 @@ def update_dialog_stack(left: list[str], right: Optional[str]) -> list[str]:
     return left + [right]
 
 # ✅ Hàm truy vấn database SQLite
-def query_db(query: str):
+def query_db(query: str, params: tuple = ()):
     """Truy vấn database SQLite và trả về kết quả."""
-    conn = sqlite3.connect("travel2.sqlite")  
+    conn = sqlite3.connect("travel2.sqlite")
     cursor = conn.cursor()
     try:
-        cursor.execute(query)
+        cursor.execute(query, params)  # Sử dụng parameterized query
+        if query.strip().lower().startswith(("insert", "update", "delete")):
+            conn.commit()  # Tự động commit cho các thao tác ghi
         results = cursor.fetchall()
+        return results if results else []
+    except sqlite3.Error as e:  # Bắt lỗi cụ thể từ SQLite
+        conn.rollback()  # Rollback transaction nếu có lỗi
+        raise RuntimeError(f"Lỗi truy vấn DB: {str(e)}") from e
+    finally:
         conn.close()
-        return results if results else "Không tìm thấy dữ liệu phù hợp."
-    except Exception as e:
-        conn.close()
-        return f"Lỗi truy vấn DB: {str(e)}"
 
 # ✅ Định nghĩa State chung để dùng ở cả Assistant, Graph Builder, Main
 class State(TypedDict):

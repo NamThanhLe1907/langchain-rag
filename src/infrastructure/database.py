@@ -33,13 +33,13 @@ def update_dates(file):
         tdf[t] = pd.read_sql(f"SELECT * from {t}", conn)
 
     example_time = pd.to_datetime(
-        tdf["flights"]["actual_departure"].replace("\\N", pd.NaT)
+        tdf["flights"]["actual_departure"].replace("N", pd.NaT)
     ).max()
     current_time = pd.to_datetime("now").tz_localize(example_time.tz)
     time_diff = current_time - example_time
 
     tdf["bookings"]["book_date"] = (
-        pd.to_datetime(tdf["bookings"]["book_date"].replace("\\N", pd.NaT), utc=True)
+        pd.to_datetime(tdf["bookings"]["book_date"].replace("N", pd.NaT), utc=True)
         + time_diff
     )
 
@@ -51,7 +51,7 @@ def update_dates(file):
     ]
     for column in datetime_columns:
         tdf["flights"][column] = (
-            pd.to_datetime(tdf["flights"][column].replace("\\N", pd.NaT)) + time_diff
+            pd.to_datetime(tdf["flights"][column].replace("N", pd.NaT)) + time_diff
         )
 
     for table_name, df in tdf.items():
