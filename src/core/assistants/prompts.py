@@ -1,4 +1,4 @@
-from Assistant.assistants import (Assistant,
+from core.assistants.assistants import (Assistant,
                                   State, 
                                   CompleteOrEscalate,
                                 ToFlightBookingAssistant,
@@ -14,7 +14,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables.config import RunnableConfig
 from langchain_community.tools.tavily_search import TavilySearchResults
-from tools.exec_tools import (fetch_user_flight_information, search_flights, lookup_policy,
+from integrations.tools.exec_tools import (fetch_user_flight_information, search_flights, lookup_policy,
                                update_ticket_to_new_flight, cancel_ticket,
                                search_car_rentals, book_car_rental, update_car_rental, cancel_car_rental,
                                search_hotels, book_hotel, update_hotel, cancel_hotel,

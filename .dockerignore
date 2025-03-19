@@ -1,23 +1,15 @@
-# Bỏ qua thư mục môi trường ảo và cache của Python
+# Loại bỏ môi trường ảo và cache Python
 env/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
-
-# Bỏ qua file log & dữ liệu không cần thiết
+# Loại bỏ file log và file SQLite (nếu không cần)
 *.log
 *.sqlite3
-
-.env
-/env
-\env
-./env
 *.sqlite
-__pycache__
-/data/old_data
-/testing_memory
-graph.py
-*.jpg
-*.png
+
+# Nếu không cần, bỏ qua file .env (nhưng lưu ý: nếu cần, hãy comment dòng này)
+# .env
+

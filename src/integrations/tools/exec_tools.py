@@ -11,7 +11,7 @@ from typing import Optional, Union
 from datetime import date, datetime
 from dotenv import load_dotenv
 load_dotenv() 
-from data.database import db
+from infrastructure.database import db
 
 
 

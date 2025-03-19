@@ -1,8 +1,8 @@
 import unicodedata
 import uuid
 from dotenv import load_dotenv
-from Assistant.graph_builder import part_4_graph
-from Assistant.prompt import (
+from core.assistants.graphs import part_4_graph
+from core.assistants.prompts import (
                             update_flight_runnable,
                             book_car_rental_runnable,
                             book_hotel_runnable,
@@ -14,11 +14,14 @@ from Assistant.prompt import (
                             book_excursion_tools,
                             fetch_user_flight_information
 )
-from data.database import update_dates, db
-from tools.tool_util import _print_event
+from infrastructure.database import update_dates, db
+from integrations.tools.utils import _print_event
 from langsmith import Client
 from langchain_core.messages import ToolMessage, HumanMessage, AIMessage
-
+import sys, os
+# print("Python Path:", sys.path)
+# print("Current Working Directory:", os.getcwd())
+# print("Directory Contents:", os.listdir(os.getcwd()))
 # ✅ Load biến môi trường
 load_dotenv()
 class AIAgentGraph:

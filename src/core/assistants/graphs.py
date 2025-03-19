@@ -1,7 +1,7 @@
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import tools_condition
-from Assistant.assistants import (Assistant,
+from core.assistants.assistants import (Assistant,
                                   State, 
                                   CompleteOrEscalate,
                                 ToFlightBookingAssistant,
@@ -9,10 +9,10 @@ from Assistant.assistants import (Assistant,
                                 ToHotelBookingAssistant,
                                 ToBookExcursion,
                                 )
-from tools.tool_util import create_tool_node_with_fallback
+from integrations.tools.utils import create_tool_node_with_fallback
 from dotenv import load_dotenv
 load_dotenv() 
-from Assistant.prompt import (
+from core.assistants.prompts import (
                             update_flight_runnable,
                             update_flight_sensitive_tools,
                             update_flight_safe_tools,
@@ -29,12 +29,11 @@ from Assistant.prompt import (
                             primary_assistant_tools,
                             
 )
-from tools.exec_tools import (fetch_user_flight_information, 
+from integrations.tools.exec_tools import (fetch_user_flight_information, 
                                book_car_rental,
                                book_hotel,
                                 book_excursion)
 from datetime import datetime
-from tools.exec_tools import fetch_user_flight_information
 from langsmith import Client
 from typing import Callable, Literal
 
