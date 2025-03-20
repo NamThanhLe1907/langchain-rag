@@ -2,7 +2,7 @@
 FROM python:3.11-slim
 
 # Cập nhật hệ thống & cài đặt dependencies cơ bản
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     git \
     curl \
@@ -11,29 +11,24 @@ RUN apt-get update && apt-get install -y \
 # Đặt thư mục làm việc
 WORKDIR /app
 
-# Tạo môi trường ảo Python (venv)
-RUN python -m venv /app/env
+# Thiết lập user để tránh chạy container bằng root
+RUN useradd -m python
+USER python
 
-# Kích hoạt venv và cập nhật pip, wheel
-RUN /app/env/bin/pip install --no-cache-dir --upgrade pip wheel
+# Sao chép requirements.txt vào container trước để cache nếu không có thay đổi
+COPY --chown=python:python requirements.txt .
 
-# Sao chép requirements.txt vào container
-COPY requirements.txt .
+# Cài đặt dependencies với cache để giảm thời gian build
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --no-cache-dir --upgrade pip wheel \
+    && pip install --no-cache-dir -r requirements.txt
 
-# Cài đặt dependencies vào môi trường ảo (venv)
-RUN /app/env/bin/pip install --no-cache-dir -r requirements.txt
+# Sao chép toàn bộ project vào container
+COPY --chown=python:python . .
 
-# Cài đặt python-dotenv để đảm bảo có thể load biến môi trường từ .env
-RUN /app/env/bin/pip install --no-cache-dir python-dotenv
-
-# Copy toàn bộ project vào container
-COPY . .
-
-# Thiết lập biến môi trường để sử dụng venv
-ENV PATH="/app/env/bin:$PATH"
-
-# Copy file .env vào container
-COPY .env .env
+# Thiết lập biến môi trường
+ENV PYTHONPATH="/app/src"
+ENV PYTHONUNBUFFERED=1
 
 # Command mặc định khi chạy container
 CMD ["bash"]

@@ -1,0 +1,12 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: dockerfile
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: bash
+    tty: true         # cấp phát TTY cho container
+    stdin_open: true  # giữ mở STDIN để tương tác
